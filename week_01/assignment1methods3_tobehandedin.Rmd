@@ -1,0 +1,264 @@
+---
+title: "Methods 3 assignment1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+##Exercise 1
+
+```{r}
+library(tidyverse)
+data(mtcars)
+
+?mtcars
+#1. Extract information from the model
+model <- lm(mpg~wt, data = mtcars) #We first make the model
+
+designmatrix <- model.matrix(model) #We create a design matrix by extracting these values
+
+coefficients <- model$coefficients 
+y_hat <- model$fitted.values
+y_groundtruth <- mtcars$mpg
+residuals <- model$residuals
+
+df <- data.frame(mtcars, mtcars$wt, mtcars$mpg, y_hat, residuals)
+
+    #i. create a plot that illustrates Y and Y^ (if you are feeling ambitious, also include ϵ (hint: you can use the function arrows))
+
+    #A plot illustrating y and y_hat and also the residuals are plotted
+
+ggplot(df, aes(x = mtcars.wt, y = mtcars.mpg)) +
+  geom_smooth(method = lm, se = FALSE, color = 'black') +
+  geom_segment(aes(xend = mtcars.wt, yend=y_hat)) +
+  geom_point() +
+  theme_minimal()
+
+
+#2. estimate β for a quadratic model (y=β2x2+β1x+β0) using ordinary least squares without using lm; β^=(XTX)−1XTY (hint: add a third column to X from step 1)
+
+  #First we add a third column to our design matrix by squaring x (since we are doing a quadratic/polynomial regression)
+class(designmatrix)
+designmatrix <- as.data.frame(designmatrix)
+designmatrix$x_sq <- designmatrix$wt**2
+designmatrix <- as.matrix(designmatrix) #We need to convert it back to a matrix in order to perform matrix operations on it 
+
+#We have our coefficients
+coefficients
+
+new_bhat <- solve(t(designmatrix)%*%designmatrix)%*%t(designmatrix)%*%y_groundtruth 
+
+#We now have our betas. 
+
+#3. compare your acquired β^ with the output of the corresponding quadratic model created using lm.
+
+#We now conduct the quadratic regression
+model2 <- lm(mpg ~ wt + I(wt^2), data=mtcars)
+summary(model2)
+
+#We now compare the output of model2 with our manually computed beta values (which we found using OLS estimation)
+
+new_bhat 
+model2$coefficients
+
+#They are precisely the same
+
+    #i. create a plot that illustrates Y and Y^ (if you are feeling ambitious, also include ϵ (hint: you can use the function arrows))
+y_hat_sq <- model2$fitted.values
+df <- data.frame(mtcars, mtcars$wt, mtcars$mpg, y_hat, residuals, y_hat_sq)
+
+ggplot(df,aes(x = wt, y = mpg)) + 
+  geom_point() +
+  stat_smooth(aes(y=y_hat), method = "lm", formula = y ~ x, se = FALSE, color = 'lightblue' ) +
+  stat_smooth(aes(y=y_hat_sq), method = "lm", formula = y ~ x + I(x^2), se = FALSE, color = 'orange', size = 1) +
+  theme_minimal()
+```
+
+##Exercise 2
+
+```{r}
+
+# Compare the plotted quadratic fit to the linear fit
+
+#1. which seems better?
+
+ggplot(mtcars,aes(x = wt, y = mpg)) + 
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se = FALSE, color = 'lightblue' ) +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE, color = 'orange', size = 1) +
+  theme_minimal()
+
+#It seems that the quadratic plot fits the data better than the linear plot.
+
+# 2. Calculate the sum of squared errors
+  
+  #We first calculate it for the linear fit
+sum(model$residuals**2)
+
+  #And then for the quadratic fit
+sum(model2$residuals**2)
+
+#The quadratic fit has a lower sum of squared residuals
+
+# 3. Now make a cubit fit and compare it to the quadratic fit
+
+model3 <- lm(mpg ~ wt + I(wt^2) + I(wt^3), data=mtcars)
+
+y_hat_cube <- model3$fitted.values
+
+df <- data.frame(mtcars, mtcars$wt, mtcars$mpg, y_hat, residuals, y_hat_sq, y_hat_cube)
+
+  #i. create a plot that illustrates Y and Y_hat for both the cubic and quadratic fits
+
+ggplot(df,aes(x = wt, y = mpg)) + 
+  geom_point() +
+  stat_smooth(aes(y=y_hat), method = "glm", formula = y ~ x, se = FALSE, color = 'lightblue') + 
+  stat_smooth(aes(y=y_hat_sq), method = "glm", formula = y ~ x + I(x^2), se = FALSE, color = 'orange', size = 1) +
+  stat_smooth(aes(y=y_hat_cube), method = "glm", formula = y ~ x + I(x^2) + I(x^3), se = FALSE, color = 'red', size = 1) +
+  theme_minimal()
+
+#The quadratic and cubuc look alike, which is why they overlap each other in the plot, but if one checks numerically, the fitted values are different for the two models.
+
+
+  #ii. compare the sum of squared errors
+#We first calculate it for the linear fit
+sum(model$residuals**2)
+
+  #And then for the quadratic fit
+sum(model2$residuals**2)
+
+#And now for the cubic fit
+sum(model3$residuals**2) #This is slightly, and only slightly, better than model 2 (the quadratic fit). 
+
+  #iii. What's the estimated value for the cubic (x3) parameter?
+model3$coefficients #it is 0.04593618
+
+  #This means it is the optimal value for the cubic parameter which minimizes the cost function of the model. 
+
+
+#4. bonus question: which summary statistic is the fitted value (intercept) below identical to?
+mean(mtcars$mpg) #The mean of the mpg
+
+```
+
+
+##Exercise 3
+```{r}
+
+logistic.model <- glm(formula = am ~ wt, data=mtcars, family="binomial")
+summary(logistic.model)
+
+  #1. Plot the fitted values for logistic.model
+plot(mtcars$wt, logistic.model$fitted.values)
+
+    #i. What is the relation between linear.predictors and the fitted_values of the logistic.model?
+
+#The linear predictors of the logistic.model are the log odds of the fitted values. In other words, to obtain the fitted values of the model, one has to apply the logistic function to the linear predictors. 
+
+plogis(logistic.model$linear.predictors)
+
+logistic.model$fitted.values
+
+#As seen above, the logistic function applied to the linear predictors return the same values of the fitted.values as computed by the model. 
+
+#2. Plot the logistic function. Use an xlim of c(0,7).
+
+log_coef <- logistic.model$coefficients
+
+log_coef[1]+log_coef[2]*mtcars$wt #Here we compute the log odds for all values in wt
+
+logisticfunction <- plogis(log_coef[1]+log_coef[2]*mtcars$wt) #We compute the logistic function via plogis() function
+
+#We can now use the above skeleton for creating a logistic function to create a function that takes x-values from 0 to 7.
+
+logistic.function <- function(x){
+  plogis(log_coef[1]+log_coef[2]*x)
+}
+
+#Our x-values are the weight values of the cars, but in the following plot they are limited to the range 0 to 7. 
+
+#We now plot the logistic function
+plot(logistic.function, xlim=c(0,7)) 
+
+  
+  #i. What's the interpretation of the intercept (beta zero)?
+plogis(logistic.model$coefficients[1])
+
+      #This means that whenever the weight of a car is equal to zero, there is a 99% probability that the car has a manual gear. 
+
+  #ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
+x_prob <- logistic.function(mtcars["Pontiac Firebird",]$wt
+)
+1-x_prob
+
+    #The estimated probability that the Pontiac Firebird has automatic is 96%, which we calculated by subtracting 1 from the output of our logistic.function. 
+
+    #iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following “quantizer” function.
+
+df_2 <- df
+
+df_2$classification <- ifelse(logistic.function(df$wt)>=0.5, 1, 0)
+
+df_2$correct_wrong <- df_2$classification==df_2$am
+
+ggplot(df_2,aes(x = wt, y = am)) + 
+  geom_point(aes(color=correct_wrong)) +
+  stat_smooth(method = "glm", method.args=list(family="binomial"), se = FALSE, color = 'lightblue', formula = y ~ x) + theme_minimal()
+
+
+#3. plot quadratic fit alongside linear fit 
+  
+logistic.model_quad <- glm(formula = am~wt + I(wt^2), data=mtcars, family="binomial")
+
+
+    #i. judging visually, does adding a quadratic term make a difference?
+
+ggplot(mtcars,aes(x = wt, y = am)) + 
+  geom_point() +
+  stat_smooth(method = "glm", method.args=list(family="binomial"), se = FALSE, color = 'lightblue', formula = y ~ x) + #The 'method.args=list() argument is passed on to the 'method' argument (which models our data), such that we can specify how the modelling should be done, i.e. that by specifying family = binomial in the method.args=list() argument we tell the method='glm' argument to model the data according to a logistic function. Thus, our ggplot will display a logistic function curve.
+  stat_smooth(method = "glm", method.args=list(family="binomial"), se = FALSE, color = 'red', formula = y ~ x + I(x^2)) +
+  theme_minimal()
+
+#Visually, there does not seem to be much difference between the two models, as they basically overlap each other in modeling the data. 
+
+    #ii. check the details in the help of the AIC function - which of the models provide the better fit according to the AIC values and the residual deviance respectively?
+
+aic_models <- AIC(logistic.model_quad, logistic.model)
+aic_models
+  
+#The quadratic logistic model returns an AIC value of 25.11 where the linear logistic model returns a value of 23.17, which means the linear fits the data better than the quadratic fit, since the AIC is lower. 
+
+logistic.model$deviance
+logistic.model_quad$deviance
+
+#The residual deviance of the linear fit is 19.17 where the residual deviance is 19.11 for the quadratic fit. The lower the residual deviance, the better, since this is an indicator of how well our outcome variable is predicted by our predictor variables. The predictors included in the quadratic fit seem to fit the data better than the predictors included in the linear fit. 
+
+    #iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.
+
+  #By including a quadratic term in our model we are in a sense attempting to contort our otherwise linear model to a shape that will fit the data points. However, this contortion to the shape of the data points might result in overfitting the data, such that the model cannot generalize to a similar dataset outside of the dataset it has been trained on. This means it might fare worse in the "outside" world when it encounters new data, so it could be convenient to penalize the quadratic model in order to ensure it will not overfit the data. 
+
+```
+
